@@ -1,0 +1,152 @@
+{
+  "name": "Pdf_analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pdf-analyze",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1872,
+        -80
+      ],
+      "id": "67757010-1daf-4160-831a-dd0c252e727c",
+      "name": "Webhook",
+      "webhookId": "1556ff79-6757-4443-857d-398918aa19f9"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/chat",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "{\n  \"Content-Type\": \"application/json\"\n}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  \"model\": \"llama3.1\",\n  \"messages\": [{\n    \"role\": \"user\", \n    \"content\": \"🏥 Medical PDF Analysis:\\n\\n\" + $json.text + \"\\n\\nExtract: diagnosis, medications, lab results, recommendations as JSON only.\"\n  }],\n  \"stream\": false\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1088,
+        -16
+      ],
+      "id": "20ef1864-c767-44f9-967e-65fcf3b136c3",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $node['HTTP Request'].json.message.content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -416,
+        -16
+      ],
+      "id": "5cf8bd54-176c-43d6-bd56-aa04b672b3e9",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1440,
+        -256
+      ],
+      "id": "fb488fa0-867d-4695-ad91-9a2c41c1fec4",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the assistant's message content from the HTTP Request node\nconst content = $input.first().json.message.content;\n\nlet cleanText = content;\n\n// If the content contains a JSON code block, try to extract it\nconst jsonMatch = content.match(/```json\\n([\\s\\S]*?)\\n```/);\nif (jsonMatch) {\n  try {\n    const parsed = JSON.parse(jsonMatch[1]);\n    // If the JSON has an \"Analysis\" array, format it nicely\n    if (parsed.Analysis && Array.isArray(parsed.Analysis)) {\n      cleanText = parsed.Analysis.map(item => \n        `${item.Title}: ${item.Description}`\n      ).join('\\n\\n');\n    } else {\n      // Otherwise, stringify the whole parsed JSON (pretty)\n      cleanText = JSON.stringify(parsed, null, 2);\n    }\n  } catch (e) {\n    // Fallback: keep the original content\n    cleanText = content;\n  }\n}\n\n// Return the cleaned text as a string (plain text)\nreturn [{\n  json: {\n    analysisText: cleanText\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -768,
+        -288
+      ],
+      "id": "fb1948fd-1b64-45c7-9d38-812c7622f554",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "3b747f2a-524f-45c0-822b-75f23582fb9e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2da3d8596469efefdcba5276313c805cc65ea7e9de9d5a16e124da609624b892"
+  },
+  "id": "mcmXt9DVZs4z3MtA",
+  "tags": []
+}
